@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Resolution Reference</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f4f7f6;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+            font-weight: 500;
+            font-size: 0.9em;
+            text-transform: uppercase;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover {
+            background-color: #fcfcfc;
+        }
+        .model-name {
+            font-weight: bold;
+            color: #2980b9;
+        }
+        .resolution {
+            font-family: "Courier New", Courier, monospace;
+            color: #666;
+        }
+        .mp {
+            color: #27ae60;
+            font-weight: 500;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Camera Resolution List</h2>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Camera Model</th>
+                    <th>Resolution</th>
+                    <th style="text-align: right;">MP</th>
+                </tr>
+            </thead>
+            <tbody id="data-table">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 原始数据
+        const data = [
+            ["R6", "5472 x 3648"], ["5D2", "5616 x 3744"], ["5D3", "5760 x 3840"],
+            ["Z5", "6016 x 4016"], ["Z6", "6048 x 4024"], ["ZF/Z63/Z52", "6048 x 4032"],
+            ["A6700", "6192 x 4128"], ["6D2/EOS RP", "6240 x 4160"], ["5D4/EOS R", "6720 x 4480"],
+            ["A7M4", "7008 x 4672"], ["K1/D810", "7360 x 4912"], ["A7R3", "7952 x 5304"],
+            ["R5", "8192 x 5464"], ["Z7", "8256 x 5504"], ["GFX50", "8256 x 6192"],
+            ["A1", "8640 x 5760"], ["A7R4", "9504 x 6336"], ["GFX100", "11648 x 8736"]
+        ];
+
+        const tbody = document.getElementById('data-table');
+
+        // 仅包含渲染逻辑，自动计算千万像素值
+        data.forEach(([model, res]) => {
+            const [w, h] = res.split('x').map(n => parseInt(n));
+            const mp = ((w * h) / 1000000).toFixed(1);
+            
+            const row = `<tr>
+                <td class="model-name">${model}</td>
+                <td class="resolution">${res}</td>
+                <td class="mp">${mp} MP</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    </script>
+</body>
+</html>
