@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字幕提取与翻译合成</title>
+    <style>
+        :root { --primary: #007AFF; --success: #34C759; --accent: #FF9500; --bg: #F5F5F7; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .main-container { display: flex; gap: 20px; max-width: 1000px; width: 100%; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); flex: 1; text-align: center; }
+        
+        .drop-area { 
+            border: 2px dashed #D2D2D7; border-radius: 15px; padding: 30px 10px; margin: 15px 0; 
+            transition: all 0.3s ease; cursor: pointer; min-height: 120px; display: flex; flex-direction: column; justify-content: center;
+        }
+        .drop-area.active { border-color: var(--primary); background: #F0F7FF; }
+        .drop-area.success-border { border-color: var(--success); }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; }
+        button { padding: 12px 5px; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:disabled { background: #E5E5EA !important; color: #A1A1A6; cursor: not-allowed; }
+        
+        .btn-extract { background: var(--primary); color: white; }
+        .btn-merge { background: var(--accent); color: white; width: 100%; margin-top: 15px; }
+        
+        h3 { margin-top: 0; color: #1D1D1F; }
+        .step-num { display: inline-block; width: 24px; height: 24px; background: #333; color: white; border-radius: 50%; font-size: 14px; margin-right: 8px; vertical-align: middle; }
+        .info-text { font-size: 12px; color: #86868B; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="card">
+        <h3><span class="step-num">1</span>提取字幕</h3>
+        <p class="info-text">支持拖拽或点击上传 draft_content.json</p>
+        <input type="file" id="json-input" accept=".json" style="display: none;">
+        <div class="drop-area" id="json-drop">
+            <div style="font-size: 30px;">📂</div>
+            <p id="json-status">上传草稿 JSON</p>
+        </div>
+        <div class="btn-group">
+            <button id="dl-srt" class="btn-extract" disabled>下载 SRT</button>
+            <button id="dl-csv" class="btn-extract" disabled>下载 CSV</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3><span class="step-num">2</span>合成新语言</h3>
+        <p class="info-text">上传翻译好的 CSV 文件进行合并</p>
+        <input type="file" id="csv-input" accept=".csv" style="display: none;">
+        <div class="drop-area" id="csv-drop">
+            <div style="font-size: 30px;">🌍</div>
+            <p id="csv-status">上传翻译后的 CSV</p>
+        </div>
+        <button id="btn-merge" class="btn-merge" disabled>合成并下载新 SRT</button>
+        <p class="info-text">需先完成左侧步骤以获取时间轴</p>
+    </div>
+</div>
+
+<script>
+    let originalTimeline = []; // 存储时间轴数据
+
+    // --- 通用逻辑：文件处理 ---
+    function setupDropZone(id, inputId, callback) {
+        const zone = document.getElementById(id);
+        const input = document.getElementById(inputId);
+        zone.onclick = () => input.click();
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('active'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('active'));
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            zone.classList.remove('active');
+            callback(e.dataTransfer.files[0]);
+        });
+        input.onchange = e => callback(e.target.files[0]);
+    }
+
+    // --- 步骤 1：解析 JSON ---
+    setupDropZone('json-drop', 'json-input', file => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = JSON.parse(e.target.result);
+                const texts = [];
+                const tracks = [...data.tracks].reverse();
+                for (const t of tracks) if (t.type === "text") { texts.push(...t.segments); break; }
+
+                const timeMap = {};
+                texts.forEach(s => {
+                    const start = s.target_timerange.start;
+                    timeMap[s.material_id] = { start, end: start + s.target_timerange.duration };
+                });
+
+                originalTimeline = data.materials.texts
+                    .filter(m => timeMap[m.id])
+                    .map((m, i) => ({
+                        id: i + 1,
+                        start: formatSrtTime(timeMap[m.id].start / 1000),
+                        end: formatSrtTime(timeMap[m.id].end / 1000),
+                        text: JSON.parse(m.content).text
+                    }));
+
+                if (originalTimeline.length > 0) {
+                    document.getElementById('json-status').innerText = `已解析 ${originalTimeline.length} 条`;
+                    document.querySelectorAll('.btn-extract').forEach(b => b.disabled = false);
+                    document.getElementById('json-drop').classList.add('success-border');
+                }
+            } catch (err) { alert("JSON 格式错误"); }
+        };
+        reader.readAsText(file);
+    });
+
+    // --- 步骤 2：合成 CSV ---
+    let translatedTexts = [];
+    setupDropZone('csv-drop', 'csv-input', file => {
+        if (!file || originalTimeline.length === 0) {
+            alert("请先上传左侧的 JSON 文件！");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = e => {
+            const rows = e.target.result.split(/\r?\n/);
+            translatedTexts = rows
+                .map(row => {
+                    // 简单的 CSV 解析：处理可能存在的逗号
+                    const firstComma = row.indexOf(',');
+                    if (firstComma === -1) return null;
+                    return row.substring(firstComma + 1).replace(/^"|"$/g, '').trim();
+                })
+                .filter(t => t !== null && t !== "Text"); // 过滤表头和空行
+
+            document.getElementById('csv-status').innerText = `已读取翻译内容`;
+            document.getElementById('btn-merge').disabled = false;
+            document.getElementById('csv-drop').classList.add('success-border');
+        };
+        reader.readAsText(file);
+    });
+
+    // 合成导出
+    document.getElementById('btn-merge').onclick = () => {
+        let srtContent = "";
+        originalTimeline.forEach((item, index) => {
+            const text = translatedTexts[index] || item.text; // 如果翻译缺失则用原文
+            srtContent += `${item.id}\n${item.start} --> ${item.end}\n${text}\n\n`;
+        });
+        downloadFile(srtContent, "translated_subtitle.srt");
+    };
+
+    // --- 辅助工具 ---
+    function formatSrtTime(ms) {
+        const date = new Date(ms);
+        const hrs = Math.floor(ms / 3600000);
+        const mins = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
+        const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+        const mils = String(Math.floor(ms % 1000)).padStart(3, '0');
+        return `${hrs}:${mins}:${secs},${mils}`;
+    }
+
+    function downloadFile(content, name) {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+    }
+
+    document.getElementById('dl-srt').onclick = () => {
+        const srt = originalTimeline.map(d => `${d.id}\n${d.start} --> ${d.end}\n${d.text}\n`).join('\n');
+        downloadFile(srt, "original.srt");
+    };
+
+    document.getElementById('dl-csv').onclick = () => {
+        const csv = "ID,Text\n" + originalTimeline.map(d => `${d.id},"${d.text.replace(/"/g, '""')}"`).join('\n');
+        downloadFile(csv, "to_translate.csv");
+    };
+</script>
+
+</body>
+</html>
