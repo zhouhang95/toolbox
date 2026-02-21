@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo GPS Extractor</title>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; background: #f9fafb; color: #1f2937; padding: 0 20px; }
+        h2 { color: #111827; margin-bottom: 8px; }
+        p.subtitle { color: #6b7280; margin-bottom: 24px; }
+        
+        #drop-zone {
+            border: 2px dashed #3b82f6;
+            border-radius: 16px;
+            padding: 50px 20px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #drop-zone:hover { background: #eff6ff; border-color: #2563eb; }
+        
+        .summary { 
+            margin: 24px 0; 
+            padding: 16px 20px; 
+            background: #ecfdf5; 
+            border-radius: 12px; 
+            border-left: 4px solid #10b981; 
+            display: none;
+            color: #065f46;
+        }
+
+        #result-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 24px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #f3f4f6; }
+        th { background: #3b82f6; color: white; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        tr:last-child td { border-bottom: none; }
+        
+        .map-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 14px;
+            background: #10b981;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .map-link:hover { background: #059669; }
+        .map-link svg { margin-right: 8px; }
+
+        .no-data-msg { text-align: center; color: #9ca3af; margin-top: 40px; display: none; padding: 40px; background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; }
+        .file-name { font-weight: 500; color: #374151; word-break: break-all; width: 50%; }
+    </style>
+</head>
+<body>
+
+    <h2>📍 Photo Location Finder</h2>
+    <p class="subtitle">Extract and view GPS coordinates from your photos. Only images with valid data are shown.</p>
+
+    <div id="drop-zone">
+        <div style="font-size: 2rem; margin-bottom: 10px;">🖼️</div>
+        <strong>Click to upload</strong> or drag photos here
+    </div>
+    <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+
+    <div id="summary-area" class="summary"></div>
+    <div id="no-data" class="no-data-msg">No GPS data found in the selected photos.</div>
+
+    <table id="result-table" style="display:none;">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Location Details</th>
+            </tr>
+        </thead>
+        <tbody id="result-body"></tbody>
+    </table>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const resultTable = document.getElementById('result-table');
+        const resultBody = document.getElementById('result-body');
+        const summaryArea = document.getElementById('summary-area');
+        const noDataMsg = document.getElementById('no-data');
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleFiles(e.target.files);
+        dropZone.ondragover = (e) => { e.preventDefault(); };
+        dropZone.ondrop = (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); };
+
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            resultBody.innerHTML = '';
+            let gpsCount = 0;
+            const fileList = Array.from(files);
+
+            for (const file of fileList) {
+                const gpsData = await getGPS(file);
+
+                if (gpsData) {
+                    gpsCount++;
+                    const tr = document.createElement('tr');
+                    const googleUrl = `https://www.google.com/maps/search/?api=1&query=${gpsData.lat},${gpsData.lng}`;
+                    
+                    tr.innerHTML = `
+                        <td class="file-name">${file.name}</td>
+                        <td>
+                            <a href="${googleUrl}" target="_blank" class="map-link">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                ${gpsData.lat.toFixed(6)}, ${gpsData.lng.toFixed(6)}
+                            </a>
+                        </td>
+                    `;
+                    resultBody.appendChild(tr);
+                }
+            }
+
+            if (gpsCount > 0) {
+                resultTable.style.display = 'table';
+                summaryArea.style.display = 'block';
+                noDataMsg.style.display = 'none';
+                summaryArea.innerHTML = `✨ Found <strong>${gpsCount}</strong> location(s) in your batch.`;
+            } else {
+                resultTable.style.display = 'none';
+                summaryArea.style.display = 'none';
+                noDataMsg.style.display = 'block';
+            }
+        }
+
+        function getGPS(file) {
+            return new Promise((resolve) => {
+                EXIF.getData(file, function() {
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    const lng = EXIF.getTag(this, "GPSLongitude");
+                    const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+                    if (lat && lng) {
+                        const toDec = (dms, ref) => {
+                            let val = (dms[0].numerator/dms[0].denominator) + 
+                                      (dms[1].numerator/dms[1].denominator / 60) + 
+                                      (dms[2].numerator/dms[2].denominator / 3600);
+                            return (ref === "S" || ref === "W") ? -val : val;
+                        };
+                        resolve({
+                            lat: toDec(lat, latRef),
+                            lng: toDec(lng, lngRef)
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
