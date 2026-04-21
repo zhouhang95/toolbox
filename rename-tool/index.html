@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>实时预览批量改名</title>
+    <style>
+        :root { --primary: #2563eb; --success: #16a34a; --bg: #f8fafc; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); padding: 40px 20px; color: #1e293b; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        .setup-area { text-align: center; padding: 40px; border: 2px dashed #cbd5e1; border-radius: 12px; margin-bottom: 24px; }
+        .controls { display: none; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; background: #f1f5f9; padding: 20px; border-radius: 12px; }
+        
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #64748b; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+        button { cursor: pointer; transition: all 0.2s; font-weight: 600; border: none; border-radius: 8px; }
+        #openBtn { background: var(--primary); color: white; padding: 12px 24px; font-size: 16px; }
+        #applyBtn { background: var(--success); color: white; padding: 12px; width: 100%; grid-column: span 3; margin-top: 10px; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #94a3b8; transform: none; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569; font-size: 14px; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-family: monospace; font-size: 13px; }
+        
+        .old-col { color: #64748b; }
+        .new-col { color: #0f172a; font-weight: bold; }
+        .highlight { color: #ef4444; background: #fee2e2; padding: 2px 4px; border-radius: 4px; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; }
+        .status-change { background: #dcfce7; color: #166534; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="margin-top:0">📁 批量改名工具</h2>
+
+    <div id="setupArea" class="setup-area">
+        <button id="openBtn">第一步：选择本地文件夹</button>
+        <p style="color: #64748b; margin-top: 15px;">浏览器将请求访问该目录的权限</p>
+    </div>
+
+    <div id="controls" class="controls">
+        <div>
+            <label>查找内容</label>
+            <input type="text" id="findStr" placeholder="输入要被替换的文字">
+        </div>
+        <div>
+            <label>替换为</label>
+            <input type="text" id="replaceStr" placeholder="输入新的文字">
+        </div>
+        <div>
+            <label>修改后缀 (可选)</label>
+            <input type="text" id="extStr" placeholder="如 .mp4 (留空保持原样)">
+        </div>
+        <button id="applyBtn">确认执行重命名</button>
+    </div>
+
+    <table id="previewTable" style="display: none;">
+        <thead>
+            <tr>
+                <th width="40%">原文件名</th>
+                <th width="45%">修改后</th>
+                <th width="15%">状态</th>
+            </tr>
+        </thead>
+        <tbody id="previewBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let files = []; // 存储文件信息 { handle, name }
+    
+    const openBtn = document.getElementById('openBtn');
+    const controls = document.getElementById('controls');
+    const setupArea = document.getElementById('setupArea');
+    const previewBody = document.getElementById('previewBody');
+    const previewTable = document.getElementById('previewTable');
+    
+    const findInp = document.getElementById('findStr');
+    const replaceInp = document.getElementById('replaceStr');
+    const extInp = document.getElementById('extStr');
+
+    // 1. 打开文件夹并扫描
+    openBtn.addEventListener('click', async () => {
+        try {
+            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            files = [];
+            
+            for await (const entry of dirHandle.values()) {
+                if (entry.kind === 'file') {
+                    files.push({ handle: entry, name: entry.name });
+                }
+            }
+
+            setupArea.style.display = 'none';
+            controls.style.display = 'grid';
+            previewTable.style.display = 'table';
+            
+            updatePreview(); // 初始渲染
+        } catch (err) {
+            if (err.name !== 'AbortError') alert('权限请求失败：' + err.message);
+        }
+    });
+
+    // 2. 实时预览逻辑
+    function updatePreview() {
+        const find = findInp.value;
+        const replace = replaceInp.value;
+        const newExt = extInp.value.trim();
+
+        previewBody.innerHTML = '';
+
+        files.forEach(file => {
+            const oldName = file.name;
+            
+            // 分解文件名
+            const lastDot = oldName.lastIndexOf('.');
+            let mainName = lastDot !== -1 ? oldName.substring(0, lastDot) : oldName;
+            let ext = lastDot !== -1 ? oldName.substring(lastDot) : '';
+
+            // 文本替换
+            let newMainName = mainName;
+            if (find !== '') {
+                newMainName = mainName.split(find).join(replace);
+            }
+
+            // 后缀修改
+            let finalExt = newExt !== '' ? (newExt.startsWith('.') ? newExt : '.' + newExt) : ext;
+            const newName = newMainName + finalExt;
+
+            // 渲染行
+            const isChanged = oldName !== newName;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="old-col">${oldName}</td>
+                <td class="new-col">${isChanged ? `<span class="highlight">${newName}</span>` : newName}</td>
+                <td>${isChanged ? '<span class="status-badge status-change">待更名</span>' : '--'}</td>
+            `;
+            previewBody.appendChild(tr);
+        });
+    }
+
+    // 监听输入框，实现实时预览
+    [findInp, replaceInp, extInp].forEach(el => {
+        el.addEventListener('input', updatePreview);
+    });
+
+    // 3. 执行修改
+    document.getElementById('applyBtn').addEventListener('click', async () => {
+        const find = findInp.value;
+        const replace = replaceInp.value;
+        const newExt = extInp.value.trim();
+
+        if (!confirm('确定要应用这些修改吗？')) return;
+
+        const btn = document.getElementById('applyBtn');
+        btn.disabled = true;
+        btn.textContent = '正在处理中...';
+
+        try {
+            for (const file of files) {
+                const oldName = file.name;
+                const lastDot = oldName.lastIndexOf('.');
+                let mainName = lastDot !== -1 ? oldName.substring(0, lastDot) : oldName;
+                let ext = lastDot !== -1 ? oldName.substring(lastDot) : '';
+
+                if (find !== '') mainName = mainName.split(find).join(replace);
+                let finalExt = newExt !== '' ? (newExt.startsWith('.') ? newExt : '.' + newExt) : ext;
+                
+                const newName = mainName + finalExt;
+
+                if (oldName !== newName) {
+                    await file.handle.move(newName);
+                }
+            }
+            alert('修改成功！页面即将刷新。');
+            location.reload();
+        } catch (err) {
+            alert('执行失败：' + err.message);
+            btn.disabled = false;
+            btn.textContent = '确认执行重命名';
+        }
+    });
+</script>
+
+</body>
+</html>
