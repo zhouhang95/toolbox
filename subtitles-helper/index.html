@@ -76,6 +76,28 @@
         });
         input.onchange = e => callback(e.target.files[0]);
     }
+    function test_is_meaning_string(test_str) {
+        const meanless_char_array = [
+            "啊",
+            "哦",
+            "唉",
+            "嗯",
+            "呵",
+            "아",
+            "으",
+            "응",
+            " ",
+            "，",
+            ",",
+        ]
+        let temp_str = test_str
+
+        for (const char of meanless_char_array) {
+            temp_str = temp_str.replaceAll(char, "")
+        }
+        return temp_str !== ""
+    }
+
 
     // --- 步骤 1：解析 JSON ---
     setupDropZone('json-drop', 'json-input', file => {
@@ -96,6 +118,7 @@
 
                 originalTimeline = data.materials.texts
                     .filter(m => timeMap[m.id])
+                    .filter(m => test_is_meaning_string(JSON.parse(m.content).text))
                     .map((m, i) => ({
                         id: i + 1,
                         start: formatSrtTime(timeMap[m.id].start / 1000),
