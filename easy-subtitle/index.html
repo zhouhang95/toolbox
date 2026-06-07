@@ -879,12 +879,21 @@
             const lines = text.split('\n');
             let maxWidth = 0;
             let totalHeight = 0;
+            let maxLineLength = 0;
             
             ctx.font = `${fontSize}px ${fontFamily}`;
             lines.forEach(line => {
                 const metrics = ctx.measureText(line);
-                maxWidth = Math.max(maxWidth, vertical ? fontSize : metrics.width);
-                totalHeight += vertical ? line.length * fontSize : fontSize;
+                maxLineLength = Math.max(maxLineLength, line.length);
+                if (vertical) {
+                    // 竖排：宽度是字体大小 * 行数（从右到左排列列），高度是最长行字符数 * 字体大小
+                    totalHeight = Math.max(totalHeight, line.length * fontSize);
+                    maxWidth += fontSize; // 每列占一个字体宽度
+                } else {
+                    // 横排：宽度是最长行宽度，高度是行数 * 字体大小
+                    maxWidth = Math.max(maxWidth, metrics.width);
+                    totalHeight += fontSize;
+                }
             });
             
             return { width: maxWidth, height: totalHeight, lineCount: lines.length, lines };
@@ -893,25 +902,33 @@
         // 绘制多行文本
         function drawTextMultiline(ctx, text, x, y, style, isStroke) {
             const lines = text.split('\n');
-            let currentY = y;
             
-            lines.forEach(line => {
+            lines.forEach((line, lineIndex) => {
                 if (style.vertical) {
+                    // 竖排文本：从右向左排列列，每列中的字符从上到下垂直排列
+                    // 先计算这一列的宽度（字体大小）和高度（字符数 * 字体大小）
+                    const columnWidth = style.fontSize;
+                    
+                    // 计算当前列的X位置（从右向左排列）
+                    const columnX = x - lineIndex * columnWidth;
+                    
+                    // 绘制这一列的每个字符
                     for (let i = 0; i < line.length; i++) {
+                        const charY = y + i * style.fontSize;
                         if (isStroke) {
-                            ctx.strokeText(line[i], x, currentY + i * style.fontSize);
+                            ctx.strokeText(line[i], columnX, charY);
                         } else {
-                            ctx.fillText(line[i], x, currentY + i * style.fontSize);
+                            ctx.fillText(line[i], columnX, charY);
                         }
                     }
-                    currentY += line.length * style.fontSize;
                 } else {
+                    // 横排文本：从上到下排列行
+                    let currentY = y + lineIndex * style.fontSize;
                     if (isStroke) {
                         ctx.strokeText(line, x, currentY);
                     } else {
                         ctx.fillText(line, x, currentY);
                     }
-                    currentY += style.fontSize;
                 }
             });
         }
