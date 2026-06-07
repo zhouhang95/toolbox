@@ -905,14 +905,15 @@
             
             lines.forEach((line, lineIndex) => {
                 if (style.vertical) {
-                    // 竖排文本：从右向左排列列，每列中的字符从上到下垂直排列
+                    // 竖排文本：从左向右排列列，每列中的字符从上到下垂直排列
                     // 先计算这一列的宽度（字体大小）和高度（字符数 * 字体大小）
                     const columnWidth = style.fontSize;
+                    const columnHeight = line.length * style.fontSize;
                     
-                    // 计算当前列的X位置（从右向左排列）
-                    const columnX = x - lineIndex * columnWidth;
+                    // 计算当前列的X位置（从左向右排列，原点在左上角）
+                    const columnX = x + lineIndex * columnWidth;
                     
-                    // 绘制这一列的每个字符
+                    // 绘制这一列的每个字符，从原点开始向下排列
                     for (let i = 0; i < line.length; i++) {
                         const charY = y + i * style.fontSize;
                         if (isStroke) {
@@ -1016,7 +1017,23 @@
                     ctx.strokeStyle = '#4361ee';
                     ctx.lineWidth = 2;
                     ctx.setLineDash([5, 5]);
-                    ctx.strokeRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                    
+                    let boxX, boxY, boxWidth, boxHeight;
+                    if (t.vertical) {
+                        // 竖排文本：包围框从左上角开始向右下方延伸（与文字绘制方向一致）
+                        boxX = t.x;
+                        boxY = t.y;
+                        boxWidth = dim.width;
+                        boxHeight = dim.height;
+                    } else {
+                        // 横排文本：保持原左上角逻辑
+                        boxX = t.x;
+                        boxY = t.y;
+                        boxWidth = dim.width;
+                        boxHeight = dim.height;
+                    }
+                    
+                    ctx.strokeRect(boxX - padding, boxY - padding, boxWidth + padding * 2, boxHeight + padding * 2);
                     ctx.setLineDash([]);
                 }
             });
