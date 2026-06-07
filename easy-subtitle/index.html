@@ -1016,6 +1016,8 @@
                 if (i === selectedTextIndex) {
                     ctx.strokeStyle = '#4361ee';
                     ctx.lineWidth = 2;
+                    ctx.lineJoin = 'round'; // 尖角处圆润连接
+                    ctx.lineCap = 'round'; // 端点圆润
                     ctx.setLineDash([5, 5]);
                     
                     let boxX, boxY, boxWidth, boxHeight;
