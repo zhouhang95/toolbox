@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片文本添加工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4361ee;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #3651d4;
+        }
+        .btn-secondary {
+            background: #3f3f5a;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #4a4a66;
+        }
+        .btn-danger {
+            background: #e63946;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #d62839;
+        }
+        .drop-zone {
+            border: 3px dashed #4361ee;
+            border-radius: 12px;
+            padding: 60px;
+            text-align: center;
+            transition: all 0.3s;
+            background: #16213e;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .drop-zone.dragover {
+            border-color: #4cc9f0;
+            background: #1f2b5a;
+        }
+        .drop-zone.hidden {
+            display: none;
+        }
+        .drop-zone p {
+            color: #888;
+            font-size: 16px;
+        }
+        .editor-container {
+            display: none;
+            gap: 20px;
+            flex: 1;
+        }
+        .editor-container.active {
+            display: flex;
+        }
+        .canvas-wrapper {
+            flex: 2;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+        canvas {
+            max-width: 100%;
+            cursor: crosshair;
+        }
+        .sidebar {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .text-content-panel, .style-settings-panel {
+            flex: 1;
+            min-width: 200px;
+        }
+        .sidebar h3 {
+            margin-bottom: 10px;
+            color: #fff;
+            font-size: 14px;
+        }
+        .text-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .panel-footer {
+            margin-top: 10px;
+        }
+        .style-add-row {
+            display: flex;
+            gap: 6px;
+        }
+        .style-item, .text-item {
+            background: #1a1a2e;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        .style-item:hover, .style-item.selected,
+        .text-item:hover, .text-item.selected {
+            border-color: #4361ee;
+        }
+        .text-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .text-item-content {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .text-item-style {
+            font-size: 10px;
+            color: #888;
+            background: #2a2a4a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        .text-preview {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .text-item:hover, .text-item.selected {
+            border-color: #4361ee;
+        }
+        .text-item input {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .text-item input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #3f3f5a;
+            border-radius: 4px;
+            background: #2a2a4a;
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .text-item input:focus {
+            outline: none;
+            border-color: #4361ee;
+        }
+        .text-item label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #aaa;
+        }
+        .text-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        .text-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #3f3f5a;
+            border-radius: 4px;
+            background: #2a2a4a;
+            color: #fff;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+        .text-item select:focus {
+            outline: none;
+            border-color: #4361ee;
+        }
+        .color-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .color-input input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .color-input span {
+            font-size: 13px;
+            color: #aaa;
+        }
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .btn-group button {
+            flex: 1;
+            padding: 8px;
+            font-size: 13px;
+        }
+        .color-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .color-presets span {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .color-presets span:hover {
+            transform: scale(1.1);
+            border-color: #fff;
+        }
+        .control-group {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #2a2a4a;
+        }
+        .control-row {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-row label {
+            font-size: 13px;
+            color: #aaa;
+        }
+        .control-row input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .control-row input[type="number"] {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #3f3f5a;
+            border-radius: 4px;
+            background: #2a2a4a;
+            color: #fff;
+            font-size: 13px;
+        }
+        .control-group select {
+            padding: 6px 10px;
+            border: 1px solid #3f3f5a;
+            border-radius: 4px;
+            background: #2a2a4a;
+            color: #fff;
+            font-size: 13px;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar">
+            <button class="btn-secondary" id="exportBtn">导出图片</button>
+            <button class="btn-danger" id="clearBtn">清空</button>
+        </div>
+        
+        <div class="drop-zone" id="dropZone">
+            <p>拖放图片到这里，或点击选择文件</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        </div>
+        
+        <div class="editor-container" id="editorContainer">
+            <div class="canvas-wrapper">
+                <canvas id="canvas"></canvas>
+            </div>
+            <div class="sidebar">
+                <div class="style-settings-panel">
+                    <h3>样式设置</h3>
+                    <div class="style-add-row">
+                        <input type="text" id="newStyleName" placeholder="新样式名称..." style="flex:1;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;">
+                        <button class="btn-primary" id="addStyleBtn">添加</button>
+                    </div>
+                    <select id="styleSelect" style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin:10px 0;"></select>
+                    <div class="style-controls-inner" id="styleControls">
+                        <div class="color-input">
+                            <span>颜色:</span>
+                            <input type="color" id="textColor" value="#ffffff">
+                        </div>
+                        <div class="color-presets" id="colorPresets"></div>
+                        <div class="checkbox-row" style="margin-top:10px;">
+                            <input type="checkbox" id="verticalCheck"> 竖排文本
+                        </div>
+                        <div class="control-row" style="margin-top:10px;">
+                            <label>字号:</label>
+                            <input type="number" id="fontSize" value="40" min="1">
+                            <label>字体:</label>
+                            <select id="fontFamily">
+                                <option value="sans-serif">黑体</option>
+                                <option value="serif">宋体</option>
+                                <option value="monospace">等宽</option>
+                                <option value="cursive">手写</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <label>描边颜色:</label>
+                                <input type="color" id="strokeColor" value="#000000">
+                                <label>描边宽度:</label>
+                                <input type="number" id="strokeWidth" value="0" min="0" max="20">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="bgEnabled"> 启用背景
+                            </div>
+                            <div class="control-row">
+                                <label>背景色:</label>
+                                <input type="color" id="bgColor" value="#000000">
+                                <label>透明度:</label>
+                                <input type="number" id="bgOpacity" value="0.5" min="0" max="1" step="0.1">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <label>边框颜色:</label>
+                                <input type="color" id="borderColor" value="#ffffff">
+                                <label>边框宽度:</label>
+                                <input type="number" id="borderWidth" value="0" min="0" max="10">
+                                <label>边框间距:</label>
+                                <input type="number" id="borderPadding" value="5" min="0" max="50">
+                            </div>
+                        </div>
+                        <div class="btn-group" style="margin-top:15px;">
+                            <button class="btn-danger" id="deleteStyleBtn">删除样式</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-content-panel">
+                    <h3>文本列表</h3>
+                    
+                    <!-- 添加新文本区域（在上面） -->
+                    <div class="add-text-area" style="border-bottom:1px solid #3f3f5a;padding-bottom:15px;margin-bottom:15px;">
+                        <h4 style="font-size:12px;margin-bottom:8px;color:#aaa;">添加新文本</h4>
+                        <textarea id="newTextContent" placeholder="新文本内容..." style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin-bottom:6px;min-height:80px;resize:vertical;"></textarea>
+                        <select id="newTextStyle" style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin-bottom:6px;"></select>
+                        <button class="btn-primary" id="addTextBtn" style="width:100%;">添加</button>
+                    </div>
+                    
+                    <!-- 编辑现有文本区域（在下面） -->
+                    <div class="edit-text-area">
+                        <h4 style="font-size:12px;margin-bottom:8px;color:#aaa;">编辑现有文本</h4>
+                        <select id="textSelect" style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin-bottom:6px;"></select>
+                        <div class="text-edit-area" id="textEditArea" style="display:none;">
+                            <textarea id="editTextContent" placeholder="文本内容..." style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin-bottom:6px;min-height:80px;resize:vertical;"></textarea>
+                            <select id="editTextStyle" style="width:100%;padding:6px;border:1px solid #3f3f5a;border-radius:4px;background:#2a2a4a;color:#fff;font-size:12px;margin-bottom:6px;"></select>
+                            <button class="btn-danger" id="deleteTextBtn" style="width:100%;">删除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const editorContainer = document.getElementById('editorContainer');
+        
+        let backgroundImage = null;
+        let texts = [];
+        let styles = [];
+        let selectedTextIndex = -1;
+        let selectedStyleName = null;
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        // 初始化默认样式
+        function initStyles() {
+            styles = [
+                { name: '默认', color: '#ffffff', strokeColor: '#000000', strokeWidth: 0, fontSize: 40, fontFamily: 'sans-serif', vertical: false, bgColor: 'rgba(0,0,0,0.5)', bgEnabled: false, borderColor: '#ffffff', borderWidth: 0, borderPadding: 5 },
+                { name: '标题', color: '#ffff00', strokeColor: '#000000', strokeWidth: 2, fontSize: 60, fontFamily: 'sans-serif', vertical: false, bgColor: 'rgba(0,0,0,0.7)', bgEnabled: true, borderColor: '#ff0000', borderWidth: 2, borderPadding: 10 },
+                { name: '注释', color: '#cccccc', strokeColor: '#000000', strokeWidth: 0, fontSize: 24, fontFamily: 'serif', vertical: true, bgColor: 'rgba(0,0,0,0.5)', bgEnabled: true, borderColor: '#ffffff', borderWidth: 1, borderPadding: 3 }
+            ];
+            selectedStyleName = '默认';
+        }
+        initStyles();
+
+        // 点击dropZone触发文件选择
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                loadImage(e.target.files[0]);
+            }
+        });
+
+        // 拖放图片
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) {
+                loadImage(e.dataTransfer.files[0]);
+            }
+        });
+
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    backgroundImage = img;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    dropZone.classList.add('hidden');
+                    editorContainer.classList.add('active');
+                    updateStyleSelect();
+                    updateNewTextStyleOptions();
+                    updateEditTextStyleOptions();
+                    updateTextSelect();
+                    updateStyleSettings();
+                    render();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 更新文本下拉菜单
+        function updateTextSelect() {
+            const select = document.getElementById('textSelect');
+            select.innerHTML = texts.map((t, i) => {
+                const displayText = t.text.replace(/\n/g, ' ').substring(0, 30) + (t.text.length > 30 ? '...' : '');
+                return `<option value="${i}">${displayText || '空文本'}</option>`;
+            }).join('');
+            if (texts.length > 0 && selectedTextIndex < 0) {
+                selectedTextIndex = 0;
+            }
+            updateTextEditArea();
+        }
+
+        // 更新编辑区域的样式选项
+        function updateEditTextStyleOptions() {
+            const select = document.getElementById('editTextStyle');
+            select.innerHTML = styles.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        }
+
+        // 更新文本编辑区域
+        function updateTextEditArea() {
+            const area = document.getElementById('textEditArea');
+            if (texts.length === 0) {
+                area.style.display = 'none';
+                return;
+            }
+            area.style.display = 'block';
+            const t = texts[selectedTextIndex];
+            document.getElementById('editTextContent').value = t.text;
+            document.getElementById('editTextStyle').value = t.styleName;
+        }
+
+        // 文本下拉菜单选择变化
+        document.getElementById('textSelect').addEventListener('change', (e) => {
+            selectedTextIndex = parseInt(e.target.value);
+            updateTextEditArea();
+            render();
+        });
+
+        // 编辑文本内容
+        document.getElementById('editTextContent').addEventListener('input', (e) => {
+            if (selectedTextIndex >= 0) {
+                texts[selectedTextIndex].text = e.target.value;
+                updateTextSelect();
+                render();
+            }
+        });
+
+        // 编辑文本样式
+        document.getElementById('editTextStyle').addEventListener('change', (e) => {
+            if (selectedTextIndex >= 0) {
+                const newStyleName = e.target.value;
+                const style = getStyle(newStyleName);
+                if (style) {
+                    texts[selectedTextIndex].styleName = newStyleName;
+                    Object.assign(texts[selectedTextIndex], {
+                        color: style.color,
+                        strokeColor: style.strokeColor,
+                        strokeWidth: style.strokeWidth,
+                        fontSize: style.fontSize,
+                        fontFamily: style.fontFamily,
+                        vertical: style.vertical,
+                        bgColor: style.bgColor,
+                        bgEnabled: style.bgEnabled,
+                        borderColor: style.borderColor,
+                        borderWidth: style.borderWidth,
+                        borderPadding: style.borderPadding
+                    });
+                    render();
+                }
+            }
+        });
+
+        // 更新新文本的样式选项
+        function updateNewTextStyleOptions() {
+            const select = document.getElementById('newTextStyle');
+            select.innerHTML = styles.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        }
+
+        // 更新样式下拉菜单
+        function updateStyleSelect() {
+            const select = document.getElementById('styleSelect');
+            select.innerHTML = styles.map(s => `<option value="${s.name}" ${s.name === selectedStyleName ? 'selected' : ''}>${s.name}</option>`).join('');
+        }
+
+        // 更新样式设置面板
+        function updateStyleSettings() {
+            const panel = document.getElementById('styleControls');
+            if (!selectedStyleName) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = 'block';
+            const s = getStyle(selectedStyleName);
+            if (!s) return;
+            
+            document.getElementById('textColor').value = s.color;
+            document.getElementById('verticalCheck').checked = s.vertical;
+            document.getElementById('fontSize').value = s.fontSize;
+            document.getElementById('fontFamily').value = s.fontFamily;
+            document.getElementById('strokeColor').value = s.strokeColor;
+            document.getElementById('strokeWidth').value = s.strokeWidth;
+            document.getElementById('bgEnabled').checked = s.bgEnabled;
+            document.getElementById('bgColor').value = s.bgColor.startsWith('rgba') ? '#000000' : s.bgColor;
+            document.getElementById('bgOpacity').value = s.bgEnabled ? parseFloat(s.bgColor.split(',')[3]) : 0.5;
+            document.getElementById('borderColor').value = s.borderColor;
+            document.getElementById('borderWidth').value = s.borderWidth;
+            document.getElementById('borderPadding').value = s.borderPadding;
+            
+            // 更新颜色预设
+            const presetColors = ['#ffffff', '#000000', '#c83232', '#32c832', '#3232c8', '#c8c832', '#c832c8', '#32c8c8', '#ff8800', '#88ff00', '#0088ff', '#ff0088', '#888888', '#cccccc'];
+            const presetsEl = document.getElementById('colorPresets');
+            presetsEl.innerHTML = presetColors.map(c => `<span style="background:${c}" data-color="${c}"></span>`).join('');
+            presetsEl.querySelectorAll('span').forEach(span => {
+                span.addEventListener('click', () => {
+                    const style = getStyle(selectedStyleName);
+                    if (style) {
+                        style.color = span.dataset.color;
+                        document.getElementById('textColor').value = span.dataset.color;
+                        applyStyleToTexts(selectedStyleName);
+                        render();
+                    }
+                });
+            });
+        }
+
+        // 根据名称获取样式
+        function getStyle(name) {
+            return styles.find(s => s.name === name);
+        }
+
+        // 添加文本
+        document.getElementById('addTextBtn').addEventListener('click', () => {
+            const content = document.getElementById('newTextContent').value.trim();
+            const styleName = document.getElementById('newTextStyle').value;
+            
+            if (!content) return;
+            
+            const style = getStyle(styleName);
+            const text = {
+                text: content,
+                styleName: styleName,
+                x: canvas.width / 2 - 50,
+                y: canvas.height / 2,
+                color: style ? style.color : '#ffffff',
+                strokeColor: style ? style.strokeColor : '#000000',
+                strokeWidth: style ? style.strokeWidth : 0,
+                fontSize: style ? style.fontSize : 40,
+                fontFamily: style ? style.fontFamily : 'sans-serif',
+                vertical: style ? style.vertical : false,
+                bgColor: style ? style.bgColor : 'rgba(0,0,0,0.5)',
+                bgEnabled: style ? style.bgEnabled : false,
+                borderColor: style ? style.borderColor : '#ffffff',
+                borderWidth: style ? style.borderWidth : 0,
+                borderPadding: style ? style.borderPadding : 5
+            };
+            texts.push(text);
+            selectedTextIndex = texts.length - 1;
+            updateTextSelect();
+            updateEditTextStyleOptions();
+            render();
+            document.getElementById('newTextContent').value = '';
+        });
+
+        // 删除文本
+        document.getElementById('deleteTextBtn').addEventListener('click', () => {
+            if (selectedTextIndex < 0 || selectedTextIndex >= texts.length) return;
+            texts.splice(selectedTextIndex, 1);
+            selectedTextIndex = texts.length > 0 ? 0 : -1;
+            updateTextSelect();
+            updateEditTextStyleOptions();
+            render();
+        });
+
+        // 添加样式
+        document.getElementById('addStyleBtn').addEventListener('click', () => {
+            const name = document.getElementById('newStyleName').value.trim();
+            if (!name || styles.find(s => s.name === name)) return;
+            
+            styles.push({
+                name: name,
+                color: '#ffffff',
+                strokeColor: '#000000',
+                strokeWidth: 0,
+                fontSize: 40,
+                fontFamily: 'sans-serif',
+                vertical: false,
+                bgColor: 'rgba(0,0,0,0.5)',
+                bgEnabled: false,
+                borderColor: '#ffffff',
+                borderWidth: 0,
+                borderPadding: 5
+            });
+            selectedStyleName = name;
+            updateStyleSelect();
+            updateNewTextStyleOptions();
+            updateEditTextStyleOptions();
+            updateStyleSettings();
+            document.getElementById('newStyleName').value = '';
+        });
+
+        // 样式下拉菜单选择变化
+        document.getElementById('styleSelect').addEventListener('change', (e) => {
+            selectedStyleName = e.target.value;
+            updateStyleSettings();
+        });
+
+        // 删除样式
+        document.getElementById('deleteStyleBtn').addEventListener('click', () => {
+            if (!selectedStyleName) return;
+            
+            // 检查是否有文本使用此样式
+            const usedBy = texts.filter(t => t.styleName === selectedStyleName).length;
+            if (usedBy > 0) {
+                alert(`此样式被 ${usedBy} 个文本使用，请先修改或删除这些文本`);
+                return;
+            }
+            
+            styles = styles.filter(s => s.name !== selectedStyleName);
+            selectedStyleName = styles.length > 0 ? styles[0].name : null;
+            updateStyleSelect();
+            updateNewTextStyleOptions();
+            updateStyleSettings();
+        });
+
+        // 绑定样式设置面板的事件
+        document.getElementById('textColor').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.color = e.target.value;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('verticalCheck').addEventListener('change', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.vertical = e.target.checked;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('fontSize').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.fontSize = parseInt(e.target.value) || 40;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('fontFamily').addEventListener('change', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.fontFamily = e.target.value;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('strokeColor').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.strokeColor = e.target.value;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('strokeWidth').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.strokeWidth = parseInt(e.target.value) || 0;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('bgEnabled').addEventListener('change', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.bgEnabled = e.target.checked;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('bgColor').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                const opacity = style.bgEnabled ? parseFloat(style.bgColor.split(',')[3]) : 0.5;
+                style.bgColor = hexToRgba(e.target.value, opacity);
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('bgOpacity').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                const color = style.bgColor.startsWith('#') ? style.bgColor : '#000000';
+                style.bgColor = hexToRgba(color, parseFloat(e.target.value) || 0.5);
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('borderColor').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.borderColor = e.target.value;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('borderWidth').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.borderWidth = parseInt(e.target.value) || 0;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        document.getElementById('borderPadding').addEventListener('input', (e) => {
+            const style = getStyle(selectedStyleName);
+            if (style) {
+                style.borderPadding = parseInt(e.target.value) || 0;
+                applyStyleToTexts(selectedStyleName);
+                render();
+            }
+        });
+        
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        // 将样式应用到所有使用该样式的文本
+        function applyStyleToTexts(styleName) {
+            const style = getStyle(styleName);
+            if (!style) return;
+            texts.forEach(t => {
+                if (t.styleName === styleName) {
+                    Object.assign(t, {
+                        color: style.color,
+                        strokeColor: style.strokeColor,
+                        strokeWidth: style.strokeWidth,
+                        fontSize: style.fontSize,
+                        fontFamily: style.fontFamily,
+                        vertical: style.vertical,
+                        bgColor: style.bgColor,
+                        bgEnabled: style.bgEnabled,
+                        borderColor: style.borderColor,
+                        borderWidth: style.borderWidth,
+                        borderPadding: style.borderPadding
+                    });
+                }
+            });
+        }
+
+        // 清空
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            texts = [];
+            selectedTextIndex = -1;
+            backgroundImage = null;
+            canvas.width = 0;
+            canvas.height = 0;
+            dropZone.classList.remove('hidden');
+            editorContainer.classList.remove('active');
+            updateTextList();
+            updateStyleSettings();
+        });
+
+        // 获取多行文本尺寸
+        function getTextDimensions(text, fontSize, vertical, fontFamily = 'sans-serif') {
+            const lines = text.split('\n');
+            let maxWidth = 0;
+            let totalHeight = 0;
+            
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            lines.forEach(line => {
+                const metrics = ctx.measureText(line);
+                maxWidth = Math.max(maxWidth, vertical ? fontSize : metrics.width);
+                totalHeight += vertical ? line.length * fontSize : fontSize;
+            });
+            
+            return { width: maxWidth, height: totalHeight, lineCount: lines.length, lines };
+        }
+        
+        // 绘制多行文本
+        function drawTextMultiline(ctx, text, x, y, style, isStroke) {
+            const lines = text.split('\n');
+            let currentY = y;
+            
+            lines.forEach(line => {
+                if (style.vertical) {
+                    for (let i = 0; i < line.length; i++) {
+                        if (isStroke) {
+                            ctx.strokeText(line[i], x, currentY + i * style.fontSize);
+                        } else {
+                            ctx.fillText(line[i], x, currentY + i * style.fontSize);
+                        }
+                    }
+                    currentY += line.length * style.fontSize;
+                } else {
+                    if (isStroke) {
+                        ctx.strokeText(line, x, currentY);
+                    } else {
+                        ctx.fillText(line, x, currentY);
+                    }
+                    currentY += style.fontSize;
+                }
+            });
+        }
+        
+        // 导出图片
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            if (!backgroundImage) return;
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.drawImage(backgroundImage, 0, 0);
+            
+            texts.forEach(t => {
+                tempCtx.font = `${t.fontSize}px ${t.fontFamily}`;
+                tempCtx.textBaseline = 'top';
+                
+                const dim = getTextDimensions(t.text, t.fontSize, t.vertical, t.fontFamily);
+                const padding = t.borderPadding;
+                
+                if (t.bgEnabled) {
+                    tempCtx.fillStyle = t.bgColor;
+                    tempCtx.fillRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                }
+                
+                if (t.borderWidth > 0) {
+                    tempCtx.strokeStyle = t.borderColor;
+                    tempCtx.lineWidth = t.borderWidth;
+                    tempCtx.strokeRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                }
+                
+                if (t.strokeWidth > 0) {
+                    tempCtx.strokeStyle = t.strokeColor;
+                    tempCtx.lineWidth = t.strokeWidth;
+                    drawTextMultiline(tempCtx, t.text, t.x, t.y, t, true);
+                }
+                
+                tempCtx.fillStyle = t.color;
+                drawTextMultiline(tempCtx, t.text, t.x, t.y, t, false);
+            });
+            
+            const link = document.createElement('a');
+            link.download = 'exported-image.png';
+            link.href = tempCanvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // 渲染
+        function render() {
+            if (!backgroundImage) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(backgroundImage, 0, 0);
+            
+            texts.forEach((t, i) => {
+                ctx.font = `${t.fontSize}px ${t.fontFamily}`;
+                ctx.textBaseline = 'top';
+                
+                const dim = getTextDimensions(t.text, t.fontSize, t.vertical, t.fontFamily);
+                const padding = t.borderPadding;
+                
+                if (t.bgEnabled) {
+                    ctx.fillStyle = t.bgColor;
+                    ctx.fillRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                }
+                
+                if (t.borderWidth > 0) {
+                    ctx.strokeStyle = t.borderColor;
+                    ctx.lineWidth = t.borderWidth;
+                    ctx.strokeRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                }
+                
+                if (t.strokeWidth > 0) {
+                    ctx.strokeStyle = t.strokeColor;
+                    ctx.lineWidth = t.strokeWidth;
+                    drawTextMultiline(ctx, t.text, t.x, t.y, t, true);
+                }
+                
+                ctx.fillStyle = t.color;
+                drawTextMultiline(ctx, t.text, t.x, t.y, t, false);
+                
+                if (i === selectedTextIndex) {
+                    ctx.strokeStyle = '#4361ee';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeRect(t.x - padding, t.y - padding, dim.width + padding * 2, dim.height + padding * 2);
+                    ctx.setLineDash([]);
+                }
+            });
+        }
+
+        // 画布鼠标事件 - 拖拽文本框
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            for (let i = texts.length - 1; i >= 0; i--) {
+                const t = texts[i];
+                const dim = getTextDimensions(t.text, t.fontSize, t.vertical, t.fontFamily);
+                
+                if (x >= t.x && x <= t.x + dim.width && y >= t.y && y <= t.y + dim.height) {
+                    selectedTextIndex = i;
+                    isDragging = true;
+                    dragOffsetX = x - t.x;
+                    dragOffsetY = y - t.y;
+                    updateTextList();
+                    render();
+                    return;
+                }
+            }
+            
+            selectedTextIndex = -1;
+            updateTextList();
+            render();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging || selectedTextIndex < 0) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            texts[selectedTextIndex].x = x - dragOffsetX;
+            texts[selectedTextIndex].y = y - dragOffsetY;
+            render();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+    </script>
+</body>
+</html>
