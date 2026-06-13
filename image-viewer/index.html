@@ -177,10 +177,34 @@
             color: #333;
             margin-bottom: 8px;
         }
+
+        .rotation-selector {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rotation-selector label {
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .rotation-selector input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <h1>图片查看器</h1>
+
+    <div class="rotation-selector">
+        <input type="checkbox" id="rotate90">
+        <label for="rotate90">顺时针旋转90°</label>
+    </div>
 
     <div class="drop-zone" id="dropZone">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white">
@@ -209,6 +233,7 @@
         const infoPopup = document.getElementById('infoPopup');
         const exifContent = document.getElementById('exifContent');
         const imageIndex = document.getElementById('imageIndex');
+        const rotationSelect = document.getElementById('rotate90');
         let currentExifData = null;
         let imageFiles = [];
         let currentIndex = 0;
@@ -256,56 +281,79 @@
             imageIndex.textContent = `${currentIndex + 1} / ${imageFiles.length}`;
 
             const file = imageFiles[index];
+            const shouldRotate = rotationSelect.checked;
+            
             const reader = new FileReader();
             reader.onload = (e) => {
-                preview.src = e.target.result;
-                imageContainer.classList.add('show');
-                dropZone.style.display = 'none';
-                document.body.classList.add('fullscreen');
-                document.querySelector('h1').style.display = 'none';
-
-                isZoomed = false;
-                preview.style.transform = 'scale(1)';
-                preview.style.transformOrigin = 'center center';
-                preview.style.cursor = 'zoom-in';
-
-                preview.onclick = (e) => {
-                    if (!isZoomed) {
-                        const rect = preview.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
-                        preview.style.transformOrigin = `${x}px ${y}px`;
-                        preview.style.transform = 'scale(1)';
-                        preview.style.cursor = 'zoom-out';
-                        isZoomed = true;
-                        setTimeout(() => {
-                            preview.style.transform = 'scale(2)';
-                        }, 0);
-                    } else {
-                        preview.style.transform = 'scale(1)';
-                        preview.style.transformOrigin = 'center center';
-                        preview.style.cursor = 'zoom-in';
-                        isZoomed = false;
+                const img = new Image();
+                img.onload = () => {
+                    let finalSrc = e.target.result;
+                    
+                    if (shouldRotate) {
+                        // 使用Canvas旋转90度
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.height;
+                        canvas.height = img.width;
+                        ctx.translate(canvas.width / 2, canvas.height / 2);
+                        ctx.rotate(90 * Math.PI / 180);
+                        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                        finalSrc = canvas.toDataURL('image/jpeg', 0.95);
                     }
-                };
+                    
+                    preview.src = finalSrc;
+                    imageContainer.classList.add('show');
+                    dropZone.style.display = 'none';
+                    document.querySelector('.rotation-selector').style.display = 'none';
+                    document.body.classList.add('fullscreen');
+                    document.querySelector('h1').style.display = 'none';
 
-                preview.onload = function() {
-                    try {
-                        exifr.parse(preview).then(function(data) {
-                            currentExifData = data;
-                            console.log('EXIF data:', currentExifData);
-                            console.log('All EXIF fields:', Object.keys(data));
-                            console.log('All EXIF data:', JSON.stringify(data, null, 2));
-                            displayExifData(currentExifData, file.name);
-                        }).catch(function(error) {
+                    isZoomed = false;
+                    preview.style.transform = 'scale(1)';
+                    preview.style.transformOrigin = 'center center';
+                    preview.style.cursor = 'zoom-in';
+
+                    preview.onclick = (e) => {
+                        if (!isZoomed) {
+                            const rect = preview.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            preview.style.transformOrigin = `${x}px ${y}px`;
+                            preview.style.transform = 'scale(1)';
+                            preview.style.cursor = 'zoom-out';
+                            isZoomed = true;
+                            setTimeout(() => {
+                                preview.style.transform = 'scale(2)';
+                            }, 0);
+                        } else {
+                            preview.style.transform = 'scale(1)';
+                            preview.style.transformOrigin = 'center center';
+                            preview.style.cursor = 'zoom-in';
+                            isZoomed = false;
+                        }
+                    };
+
+                    // 旋转后的图片不读取EXIF，直接显示文件名
+                    if (shouldRotate) {
+                        exifContent.innerHTML = '<p class="filename">' + file.name + '</p><p class="no-exif">图片已旋转，EXIF信息已丢弃</p>';
+                    } else {
+                        // 不旋转时读取EXIF
+                        try {
+                            exifr.parse(preview).then(function(data) {
+                                currentExifData = data;
+                                console.log('EXIF data:', currentExifData);
+                                displayExifData(currentExifData, file.name);
+                            }).catch(function(error) {
+                                console.log('Error reading EXIF:', error);
+                                exifContent.innerHTML = '<p class="filename">' + file.name + '</p><p class="no-exif">该图片没有EXIF信息</p>';
+                            });
+                        } catch (error) {
                             console.log('Error reading EXIF:', error);
                             exifContent.innerHTML = '<p class="filename">' + file.name + '</p><p class="no-exif">该图片没有EXIF信息</p>';
-                        });
-                    } catch (error) {
-                        console.log('Error reading EXIF:', error);
-                        exifContent.innerHTML = '<p class="filename">' + file.name + '</p><p class="no-exif">该图片没有EXIF信息</p>';
+                        }
                     }
                 };
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
