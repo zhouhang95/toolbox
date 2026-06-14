@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>带密码解压工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/@zip.js/zip.js@2.7.21/dist/zip-full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #4facfe;
+            background: #f8fcff;
+        }
+
+        .upload-area .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: #4facfe;
+        }
+
+        .upload-area p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .upload-area p span {
+            color: #4facfe;
+            font-weight: 500;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .password-section {
+            margin-bottom: 20px;
+        }
+
+        .password-section label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .password-section input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .password-section input:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary:hover {
+            background: #eee;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+
+        .file-list {
+            display: none;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .file-list h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: background 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #f9f9f9;
+        }
+
+        .file-item .file-icon {
+            font-size: 20px;
+            margin-right: 12px;
+        }
+
+        .file-item .file-info {
+            flex: 1;
+        }
+
+        .file-item .file-name {
+            font-size: 14px;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item .file-size {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .file-item .download-btn {
+            background: #4facfe;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .file-item .download-btn:hover {
+            background: #3f9cf8;
+        }
+
+        .download-all-btn {
+            display: none;
+            margin-top: 16px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .download-all-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        .error-message {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            display: none;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ZIP带密码解压工具</h1>
+        </div>
+        
+        <div class="content">
+            <div class="upload-area" id="uploadArea">
+                <div class="icon">📁</div>
+                <p><span>点击选择文件</span> 或拖拽文件到此处</p>
+                <input type="file" id="fileInput" accept=".zip">
+            </div>
+
+            <div class="password-section">
+                <label for="password">密码（可选）</label>
+                <input type="text" id="password" placeholder="如果文件有密码请输入">
+            </div>
+
+            <button class="btn btn-primary" id="extractBtn" disabled>解析文件</button>
+            <button class="btn btn-secondary" id="downloadAllBtn" style="display: none;">下载全部</button>
+            <button class="btn btn-secondary" id="saveToFolderBtn" style="display: none;">保存到文件夹</button>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-bar-inner" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">正在解压...</div>
+            </div>
+
+            <div class="file-list" id="fileList">
+                <h3>解压文件列表</h3>
+            </div>
+
+            <button class="btn btn-secondary download-all-btn" id="downloadAllBtn" style="display: none;">下载全部</button>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const passwordInput = document.getElementById('password');
+        const extractBtn = document.getElementById('extractBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const fileList = document.getElementById('fileList');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const saveToFolderBtn = document.getElementById('saveToFolderBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        let selectedFile = null;
+        let zipEntries = [];
+        let zipReader = null;
+        let folderHandle = null;
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            uploadArea.innerHTML = `
+                <div class="icon">✅</div>
+                <p><span>${file.name}</span></p>
+                <p style="font-size: 12px; margin-top: 4px;">${formatSize(file.size)}</p>
+            `;
+            extractBtn.disabled = false;
+            hideMessages();
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        extractBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            if (!window.zip || !window.zip.ZipReader) {
+                showError('解压库加载失败，请刷新页面重试');
+                return;
+            }
+
+            hideMessages();
+            showProgress();
+            fileList.innerHTML = '<h3>解压文件列表</h3>';
+            zipEntries = [];
+
+            try {
+                const password = passwordInput.value || undefined;
+                zipReader = new window.zip.ZipReader(new window.zip.BlobReader(selectedFile), { 
+                    password,
+                    useWebWorkers: true
+                });
+                
+                const entries = await zipReader.getEntries();
+                zipEntries = entries.filter(entry => !entry.directory);
+                const totalFiles = zipEntries.length;
+
+                if (totalFiles === 0) {
+                    showError('压缩包内没有文件');
+                    progressContainer.style.display = 'none';
+                    return;
+                }
+
+                // 显示文件列表
+                for (let i = 0; i < zipEntries.length; i++) {
+                    const entry = zipEntries[i];
+                    const fileIcon = entry.filename.includes('.txt') ? '📄' : 
+                                    entry.filename.includes('.pdf') ? '📕' :
+                                    entry.filename.includes('.jpg') || entry.filename.includes('.png') ? '🖼️' :
+                                    entry.filename.includes('.docx') || entry.filename.includes('.doc') ? '📝' :
+                                    entry.filename.includes('.xlsx') || entry.filename.includes('.xls') ? '📊' : '📎';
+                    
+                    addFileToList(entry.filename, entry.uncompressedSize || 0, fileIcon, i);
+                }
+
+                progressText.textContent = `共 ${totalFiles} 个文件`;
+
+                // 根据文件数量显示不同按钮
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    if (totalFiles === 1) {
+                        downloadAllBtn.textContent = '下载';
+                    } else {
+                        downloadAllBtn.textContent = '下载全部';
+                    }
+                    downloadAllBtn.style.display = 'block';
+                    saveToFolderBtn.style.display = 'block';
+                    showSuccess(`解析完成，共 ${totalFiles} 个文件`);
+                }, 500);
+
+            } catch (error) {
+                progressContainer.style.display = 'none';
+                console.error('解析错误:', error);
+                
+                const hasPassword = passwordInput.value.trim() !== '';
+                
+                if (!hasPassword && (error.message && (error.message.includes('encrypted') || error.message.includes('encrypt') || error.message.includes('password')))) {
+                    showError('🔐 该文件已加密，请输入密码后重试');
+                } else if (error.message && (error.message.includes('password') || error.message.includes('Password') || error.message.includes('invalid'))) {
+                    showError('❌ 密码错误，请检查密码后重试');
+                } else if (error.message && (error.message.includes('encrypted') || error.message.includes('Encryption') || error.message.includes('encrypt'))) {
+                    showError('💡 不支持此加密格式。\n\n支持的加密格式：\n• AES-128 / AES-256\n• ZipCrypto (传统加密)\n\n如果问题持续，请尝试使用其他解压工具。');
+                } else if (error.message && error.message.includes('corrupt')) {
+                    showError('文件已损坏或不是有效的 ZIP 文件');
+                } else {
+                    showError('解析失败：' + (error.message || '未知错误'));
+                }
+            }
+        });
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function addFileToList(name, size, icon, entryIndex) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="file-icon">${icon}</div>
+                <div class="file-info">
+                    <div class="file-name">${name}</div>
+                    <div class="file-size">${formatSize(size)}</div>
+                </div>
+                <button class="download-btn" data-index="${entryIndex}">下载</button>
+            `;
+            
+            fileItem.querySelector('.download-btn').addEventListener('click', async (e) => {
+                const idx = parseInt(e.target.getAttribute('data-index'));
+                const entry = zipEntries[idx];
+                const password = passwordInput.value || undefined;
+                
+                try {
+                    e.target.textContent = '提取中...';
+                    e.target.disabled = true;
+                    const blob = await entry.getData(new window.zip.BlobWriter('application/octet-stream'), { password });
+                    saveAs(blob, entry.filename);
+                    e.target.textContent = '下载';
+                    e.target.disabled = false;
+                } catch (err) {
+                    console.error('提取失败:', err);
+                    e.target.textContent = '下载';
+                    e.target.disabled = false;
+                    showError('提取文件失败：' + (err.message || '未知错误'));
+                }
+            });
+            
+            fileList.appendChild(fileItem);
+            fileList.style.display = 'block';
+        }
+
+        downloadAllBtn.addEventListener('click', async () => {
+            if (!zipReader || zipEntries.length === 0) return;
+
+            hideMessages();
+            showProgress();
+            const password = passwordInput.value || undefined;
+            const totalFiles = zipEntries.length;
+
+            try {
+                for (let i = 0; i < zipEntries.length; i++) {
+                    const entry = zipEntries[i];
+                    progressText.textContent = `正在提取: ${entry.filename} (${i + 1}/${totalFiles})`;
+                    progressBar.style.width = `${((i + 1) / totalFiles) * 100}%`;
+
+                    const blob = await entry.getData(new window.zip.BlobWriter('application/octet-stream'), { password });
+                    saveAs(blob, entry.filename);
+                }
+
+                progressText.textContent = '提取完成！';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    showSuccess('所有文件已提取并开始下载');
+                }, 500);
+            } catch (err) {
+                progressContainer.style.display = 'none';
+                console.error('提取失败:', err);
+                showError('提取失败：' + (err.message || '未知错误'));
+            }
+        });
+
+        function showProgress() {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            fileList.style.display = 'none';
+            downloadAllBtn.style.display = 'none';
+            saveToFolderBtn.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+
+        // 确保目录存在，如果不存在则创建
+        async function ensureDirectoryExists(parentHandle, pathParts, depth) {
+            let currentHandle = parentHandle;
+            for (let i = 0; i < depth; i++) {
+                currentHandle = await currentHandle.getDirectoryHandle(pathParts[i], { create: true });
+            }
+            return currentHandle;
+        }
+
+        // 解析文件路径，返回目录路径数组和文件名
+        function parseFilePath(filePath) {
+            const parts = filePath.split('/');
+            const fileName = parts.pop();
+            return { dirParts: parts, fileName };
+        }
+
+        // 保存单个文件到指定目录
+        async function saveFileToDirectory(dirHandle, file) {
+            const { dirParts, fileName } = parseFilePath(file.name);
+
+            // 创建必要的子目录
+            let targetDir = dirHandle;
+            if (dirParts.length > 0) {
+                targetDir = await ensureDirectoryExists(dirHandle, dirParts, dirParts.length);
+            }
+
+            // 创建文件并写入
+            const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(file.blob);
+            await writable.close();
+        }
+
+        // 选择文件夹并保存所有文件
+        async function saveToFolder() {
+            if (!zipReader || zipEntries.length === 0) return;
+
+            try {
+                // 请求用户选择文件夹
+                folderHandle = await window.showDirectoryPicker();
+
+                if (!folderHandle) {
+                    showError('未选择文件夹');
+                    return;
+                }
+
+                // 在选择的文件夹内创建一个以zip文件名命名的子文件夹
+                const zipFolderName = selectedFile.name.replace(/\.zip$/i, '');
+                const targetFolder = await folderHandle.getDirectoryHandle(zipFolderName, { create: true });
+
+                hideMessages();
+                showProgress();
+                const password = passwordInput.value || undefined;
+                const totalFiles = zipEntries.length;
+
+                // 逐个提取并保存文件，保持结构
+                for (let i = 0; i < zipEntries.length; i++) {
+                    const entry = zipEntries[i];
+                    progressText.textContent = `正在保存: ${entry.filename} (${i + 1}/${totalFiles})`;
+                    progressBar.style.width = `${((i + 1) / totalFiles) * 100}%`;
+
+                    try {
+                        const blob = await entry.getData(new window.zip.BlobWriter('application/octet-stream'), { password });
+                        await saveFileToDirectory(targetFolder, { name: entry.filename, blob });
+                    } catch (err) {
+                        console.error(`保存文件失败: ${entry.filename}`, err);
+                    }
+                }
+
+                progressText.textContent = '保存完成！';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    showSuccess(`已保存 ${zipEntries.length} 个文件到文件夹`);
+                }, 500);
+
+            } catch (err) {
+                progressContainer.style.display = 'none';
+                if (err.name !== 'AbortError') {
+                    console.error('保存失败:', err);
+                    showError('保存失败：' + (err.message || '未知错误'));
+                }
+            }
+        }
+
+        saveToFolderBtn.addEventListener('click', saveToFolder);
+    </script>
+</body>
+</html>
