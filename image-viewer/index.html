@@ -467,6 +467,19 @@
             }
         });
 
+        document.addEventListener('wheel', (e) => {
+            if (imageFiles.length > 0) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 1 : -1;
+                const newIndex = currentIndex === 0 && delta === -1 
+                    ? imageFiles.length - 1 
+                    : currentIndex === imageFiles.length - 1 && delta === 1 
+                        ? 0 
+                        : currentIndex + delta;
+                showImage(newIndex);
+            }
+        }, { passive: false });
+
         let isDragging = false;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
