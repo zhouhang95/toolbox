@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f2ec" />
+    <title>PDF Images · 原图提取</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>PDF 图片提取</h1>
+        <p class="intro">文件仅在浏览器本地处理</p>
+      </section>
+
+      <section class="workspace" aria-label="PDF 图片提取工具">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-describedby="dropHint">
+          <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden />
+          <div class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64"><path d="M32 42V13m0 0L21 24m11-11 11 11M14 40v8a5 5 0 0 0 5 5h26a5 5 0 0 0 5-5v-8"/></svg>
+          </div>
+          <div>
+            <strong id="dropTitle">拖入 PDF 文件</strong>
+            <span id="dropHint">或点击此处选择文件</span>
+          </div>
+          <span class="file-pill" id="filePill" hidden></span>
+        </div>
+
+        <div class="controls">
+          <div class="format-row">
+            <div class="format-copy"><label>提取格式</label><p>ALL 保留源文件；PNG 兼容显示 CMYK 图片</p></div>
+            <div class="format-options" role="radiogroup" aria-label="提取格式">
+              <label><input type="radio" name="format" value="all" checked /><span>ALL</span></label>
+              <label><input type="radio" name="format" value="png" /><span>PNG</span></label>
+            </div>
+          </div>
+          <div class="destination">
+            <div><label>保存位置</label><p id="folderLabel">尚未选择文件夹</p></div>
+            <button id="folderButton" class="button secondary" type="button">选择文件夹</button>
+          </div>
+          <div class="action-row">
+            <label class="check"><input id="subfolder" type="checkbox" checked /><span></span>为每个 PDF 新建图片文件夹</label>
+            <button id="extractButton" class="button primary" type="button" disabled>
+              <span>提取原图</span><b aria-hidden="true">→</b>
+            </button>
+          </div>
+        </div>
+
+        <div id="progress" class="progress" hidden aria-live="polite">
+          <div class="progress-head"><span id="statusText">正在加载引擎…</span><span id="statusDetail">WASM</span></div>
+          <div class="progress-track"><i id="progressBar"></i></div>
+        </div>
+
+        <section id="result" class="result" hidden aria-live="polite">
+          <div><span class="success-mark">✓</span><div><strong id="resultTitle"></strong><p id="resultDetail"></p></div></div>
+          <button id="resetButton" class="text-button" type="button">继续处理另一个 PDF</button>
+        </section>
+
+        <details id="errorPanel" class="error" hidden>
+          <summary>处理失败</summary>
+          <pre id="errorText"></pre>
+        </details>
+      </section>
+
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
